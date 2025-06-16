@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   FileText, 
@@ -30,24 +29,34 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
 import ApiKeyForm from './ApiKeyForm';
+import type { 
+  Company, 
+  Book, 
+  ERPOption, 
+  SyncHistoryEntry, 
+  APIResponse, 
+  ConnectionStatus, 
+  ApiKeys, 
+  IntegrationData 
+} from '../types';
 
 const Dashboard = () => {
   const [selectedERP, setSelectedERP] = useState('');
   const [selectedPeriod, setSelectedPeriod] = useState('');
-  const [companies, setCompanies] = useState([
+  const [companies, setCompanies] = useState<Company[]>([
     { id: 1, name: 'Empresa Exemplo Ltda', cnpj: '12.345.678/0001-90', status: 'Ativo' }
   ]);
-  const [books, setBooks] = useState([]);
+  const [books, setBooks] = useState<Book[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [integrationData, setIntegrationData] = useState({});
-  const [apiKeys, setApiKeys] = useState({});
-  const [connectionStatus, setConnectionStatus] = useState({});
-  const [syncHistory, setSyncHistory] = useState([]);
+  const [integrationData, setIntegrationData] = useState<IntegrationData>({});
+  const [apiKeys, setApiKeys] = useState<ApiKeys>({});
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>({});
+  const [syncHistory, setSyncHistory] = useState<SyncHistoryEntry[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
-  const [currentERPConfig, setCurrentERPConfig] = useState(null);
+  const [currentERPConfig, setCurrentERPConfig] = useState<ERPOption | null>(null);
 
-  const erpOptions = [
+  const erpOptions: ERPOption[] = [
     { 
       value: 'bling', 
       label: 'Bling ERP', 
@@ -104,7 +113,7 @@ const Dashboard = () => {
     }
   ];
 
-  const requiredBooks = [
+  const requiredBooks: Book[] = [
     {
       name: 'Livro Caixa',
       description: 'Registro de todas as movimentações financeiras',
@@ -131,11 +140,11 @@ const Dashboard = () => {
     }
   ];
 
-  const testConnection = async (erpType) => {
+  const testConnection = async (erpType: string) => {
     const erp = erpOptions.find(e => e.value === erpType);
     const keys = apiKeys[erpType];
     
-    if (!keys) {
+    if (!keys || !erp) {
       toast({
         title: "Erro",
         description: "Configure as chaves de API primeiro",
@@ -147,7 +156,6 @@ const Dashboard = () => {
     try {
       setConnectionStatus(prev => ({ ...prev, [erpType]: 'testing' }));
       
-      // Simulação de teste de conexão
       const response = await simulateAPICall(erp, keys, 'test');
       
       if (response.success) {
@@ -159,29 +167,30 @@ const Dashboard = () => {
         });
       } else {
         setConnectionStatus(prev => ({ ...prev, [erpType]: 'error' }));
-        addSyncHistory(`Erro ao conectar com ${erp.label}: ${response.error}`);
+        addSyncHistory(`Erro ao conectar com ${erp.label}: ${response.error || 'Erro desconhecido'}`);
         toast({
           title: "Erro",
-          description: response.error,
+          description: response.error || 'Erro desconhecido',
           variant: "destructive"
         });
       }
     } catch (error) {
       setConnectionStatus(prev => ({ ...prev, [erpType]: 'error' }));
-      addSyncHistory(`Erro ao conectar com ${erp.label}: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      addSyncHistory(`Erro ao conectar com ${erp.label}: ${errorMessage}`);
       toast({
         title: "Erro",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive"
       });
     }
   };
 
-  const syncData = async (erpType) => {
+  const syncData = async (erpType: string) => {
     const erp = erpOptions.find(e => e.value === erpType);
     const keys = apiKeys[erpType];
     
-    if (connectionStatus[erpType] !== 'connected') {
+    if (connectionStatus[erpType] !== 'connected' || !erp) {
       toast({
         title: "Erro",
         description: "Estabeleça conexão primeiro",
@@ -194,13 +203,11 @@ const Dashboard = () => {
     addSyncHistory(`Iniciando sincronização com ${erp.label}...`);
 
     try {
-      // Buscar dados do ERP
       const salesData = await fetchERPData(erp, keys, 'sales');
       const purchaseData = await fetchERPData(erp, keys, 'purchases');
       const inventoryData = await fetchERPData(erp, keys, 'inventory');
       const financialData = await fetchERPData(erp, keys, 'financial');
 
-      // Armazenar dados integrados
       setIntegrationData(prev => ({
         ...prev,
         [erpType]: {
@@ -218,10 +225,11 @@ const Dashboard = () => {
         description: `Dados sincronizados com ${erp.label}`,
       });
     } catch (error) {
-      addSyncHistory(`Erro na sincronização com ${erp.label}: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      addSyncHistory(`Erro na sincronização com ${erp.label}: ${errorMessage}`);
       toast({
         title: "Erro",
-        description: `Erro na sincronização: ${error.message}`,
+        description: `Erro na sincronização: ${errorMessage}`,
         variant: "destructive"
       });
     } finally {
@@ -229,19 +237,19 @@ const Dashboard = () => {
     }
   };
 
-  const simulateAPICall = async (erp, keys, endpoint) => {
+  const simulateAPICall = async (erp: ERPOption, keys: Record<string, string>, endpoint: string): Promise<APIResponse> => {
     return new Promise((resolve) => {
       setTimeout(() => {
         const hasValidKeys = Object.values(keys).every(key => key && key.length > 0);
         resolve({
           success: hasValidKeys,
-          error: hasValidKeys ? null : 'Chaves de API inválidas'
+          error: hasValidKeys ? undefined : 'Chaves de API inválidas'
         });
       }, 1000);
     });
   };
 
-  const fetchERPData = async (erp, keys, dataType) => {
+  const fetchERPData = async (erp: ERPOption, keys: Record<string, string>, dataType: string): Promise<any[]> => {
     return new Promise((resolve) => {
       setTimeout(() => {
         const mockData = generateMockData(erp.value, dataType);
@@ -250,8 +258,8 @@ const Dashboard = () => {
     });
   };
 
-  const generateMockData = (erpType, dataType) => {
-    const baseData = {
+  const generateMockData = (erpType: string, dataType: string): any[] => {
+    const baseData: Record<string, any[]> = {
       sales: [
         { id: 1, date: '2024-01-15', customer: 'Cliente A', value: 1500.00, items: 3 },
         { id: 2, date: '2024-01-16', customer: 'Cliente B', value: 2300.50, items: 5 },
@@ -275,7 +283,7 @@ const Dashboard = () => {
     return baseData[dataType] || [];
   };
 
-  const addSyncHistory = (message) => {
+  const addSyncHistory = (message: string) => {
     setSyncHistory(prev => [{
       id: Date.now(),
       message,
@@ -283,19 +291,22 @@ const Dashboard = () => {
     }, ...prev.slice(0, 9)]);
   };
 
-  const openApiKeyModal = (erpType) => {
-    setCurrentERPConfig(erpOptions.find(e => e.value === erpType));
+  const openApiKeyModal = (erpType: string) => {
+    setCurrentERPConfig(erpOptions.find(e => e.value === erpType) || null);
     setShowApiKeyModal(true);
   };
 
-  const saveApiKeys = (erpType, keys) => {
+  const saveApiKeys = (erpType: string, keys: Record<string, string>) => {
     setApiKeys(prev => ({ ...prev, [erpType]: keys }));
     setShowApiKeyModal(false);
-    addSyncHistory(`Chaves de API configuradas para ${currentERPConfig.label}`);
-    toast({
-      title: "Sucesso",
-      description: `Chaves configuradas para ${currentERPConfig.label}`,
-    });
+    const currentERP = erpOptions.find(e => e.value === erpType);
+    if (currentERP) {
+      addSyncHistory(`Chaves de API configuradas para ${currentERP.label}`);
+      toast({
+        title: "Sucesso",
+        description: `Chaves configuradas para ${currentERP.label}`,
+      });
+    }
   };
 
   const generateBooks = () => {
@@ -311,7 +322,7 @@ const Dashboard = () => {
     setIsGenerating(true);
     
     setTimeout(() => {
-      const generatedBooks = requiredBooks.map(book => ({
+      const generatedBooks: Book[] = requiredBooks.map(book => ({
         ...book,
         status: 'completed',
         generatedAt: new Date().toISOString(),
@@ -328,7 +339,7 @@ const Dashboard = () => {
     }, 3000);
   };
 
-  const downloadBook = (book) => {
+  const downloadBook = (book: Book) => {
     toast({
       title: "Download iniciado",
       description: `Baixando: ${book.fileName}`,
@@ -427,7 +438,7 @@ const Dashboard = () => {
                           {book.name} gerado com sucesso
                         </span>
                         <span className="text-sm text-gray-400">
-                          {new Date(book.generatedAt).toLocaleString('pt-BR')}
+                          {book.generatedAt && new Date(book.generatedAt).toLocaleString('pt-BR')}
                         </span>
                       </div>
                     ))
