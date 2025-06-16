@@ -1,4 +1,3 @@
-
 export interface Company {
   id: number;
   name: string;
@@ -14,6 +13,8 @@ export interface Book {
   generatedAt?: string;
   fileName?: string;
   recordCount?: number;
+  format?: string;
+  period?: string;
 }
 
 export interface ERPOption {

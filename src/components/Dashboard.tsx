@@ -29,6 +29,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
 import ApiKeyForm from './ApiKeyForm';
+import BookDetailsModal from './BookDetailsModal';
 import type { 
   Company, 
   Book, 
@@ -55,6 +56,8 @@ const Dashboard = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
   const [currentERPConfig, setCurrentERPConfig] = useState<ERPOption | null>(null);
+  const [showBookDetails, setShowBookDetails] = useState(false);
+  const [selectedBook, setSelectedBook] = useState<Book | null>(null);
 
   const erpOptions: ERPOption[] = [
     { 
@@ -327,7 +330,9 @@ const Dashboard = () => {
         status: 'completed',
         generatedAt: new Date().toISOString(),
         fileName: `${book.name.replace(/\s+/g, '_')}_${selectedPeriod}.pdf`,
-        recordCount: Math.floor(Math.random() * 500) + 50
+        recordCount: Math.floor(Math.random() * 500) + 50,
+        format: 'pdf',
+        period: selectedPeriod
       }));
       
       setBooks(generatedBooks);
@@ -337,6 +342,23 @@ const Dashboard = () => {
         description: "Livros contábeis gerados com sucesso!",
       });
     }, 3000);
+  };
+
+  const openBookDetails = (book: Book) => {
+    setSelectedBook(book);
+    setShowBookDetails(true);
+  };
+
+  const updateBook = (updatedBook: Book) => {
+    setBooks(prevBooks => 
+      prevBooks.map(book => 
+        book.name === updatedBook.name ? updatedBook : book
+      )
+    );
+    toast({
+      title: "Sucesso",
+      description: "Detalhes do livro atualizados!",
+    });
   };
 
   const downloadBook = (book: Book) => {
@@ -522,6 +544,13 @@ const Dashboard = () => {
                               {book.recordCount} registros
                             </Badge>
                             <Button
+                              onClick={() => openBookDetails(book)}
+                              size="sm"
+                              variant="outline"
+                            >
+                              Ver Detalhes
+                            </Button>
+                            <Button
                               onClick={() => downloadBook(book)}
                               size="sm"
                               variant="outline"
@@ -530,6 +559,15 @@ const Dashboard = () => {
                               Download
                             </Button>
                           </>
+                        )}
+                        {book.status === 'pending' && (
+                          <Button
+                            onClick={() => openBookDetails(book)}
+                            size="sm"
+                            variant="ghost"
+                          >
+                            Ver Detalhes
+                          </Button>
                         )}
                         <Badge variant={book.status === 'completed' ? 'default' : 'secondary'}>
                           {book.status === 'completed' ? 'Concluído' : 'Pendente'}
@@ -743,6 +781,17 @@ const Dashboard = () => {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Modal de Detalhes do Livro */}
+      {selectedBook && (
+        <BookDetailsModal
+          book={selectedBook}
+          isOpen={showBookDetails}
+          onClose={() => setShowBookDetails(false)}
+          onSave={updateBook}
+          onDownload={downloadBook}
+        />
+      )}
 
       {/* Modal de Configuração de API */}
       <Dialog open={showApiKeyModal} onOpenChange={setShowApiKeyModal}>
