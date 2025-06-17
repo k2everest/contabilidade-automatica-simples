@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -8,7 +7,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Edit, Save, X } from 'lucide-react';
+import { Calendar, Edit, Save, X, Download } from 'lucide-react';
+import { generateBookFile } from '../utils/fileGenerator';
+import { toast } from '@/hooks/use-toast';
 import type { Book } from '../types';
 
 interface BookDetailsModalProps {
@@ -40,8 +41,20 @@ const BookDetailsModal: React.FC<BookDetailsModalProps> = ({
   };
 
   const handleDownload = () => {
-    onDownload(editedBook);
-    onClose();
+    try {
+      generateBookFile(editedBook, editedBook.format || 'pdf');
+      toast({
+        title: "Download iniciado",
+        description: `Baixando: ${editedBook.fileName || editedBook.name}`,
+      });
+      onDownload(editedBook);
+    } catch (error) {
+      toast({
+        title: "Erro no download",
+        description: "Falha ao baixar o arquivo. Tente novamente.",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -220,6 +233,7 @@ const BookDetailsModal: React.FC<BookDetailsModalProps> = ({
                 disabled={editedBook.status !== 'completed'}
                 className="flex items-center"
               >
+                <Download className="h-4 w-4 mr-2" />
                 Fazer Download
               </Button>
               <Button variant="outline" onClick={onClose}>

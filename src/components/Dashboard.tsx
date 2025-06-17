@@ -32,6 +32,7 @@ import type {
   SyncHistoryEntry, 
   ApiKeys
 } from '../types';
+import { generateBookFile } from '../utils/fileGenerator';
 
 const Dashboard = () => {
   const [selectedERP, setSelectedERP] = useState('');
@@ -262,10 +263,19 @@ const Dashboard = () => {
   };
 
   const downloadBook = (book: Book) => {
-    toast({
-      title: "Download iniciado",
-      description: `Baixando: ${book.fileName}`,
-    });
+    try {
+      generateBookFile(book, book.format || 'pdf');
+      toast({
+        title: "Download concluído",
+        description: `Arquivo ${book.fileName} baixado com sucesso!`,
+      });
+    } catch (error) {
+      toast({
+        title: "Erro no download",
+        description: "Falha ao baixar o arquivo. Tente novamente.",
+        variant: "destructive"
+      });
+    }
   };
 
   const connectedERPs = erpOptions.filter(erp => erp.status === 'connected');
