@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   FileText, 
   Calendar, 
@@ -16,7 +17,8 @@ import {
   BarChart3,
   PieChart,
   TrendingUp,
-  AlertCircle
+  AlertCircle,
+  Info
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import type { Book } from '../types';
@@ -55,12 +57,14 @@ const AdvancedBookGenerator: React.FC<AdvancedBookGeneratorProps> = ({
       start: new Date().toISOString().slice(0, 7),
       end: new Date().toISOString().slice(0, 7)
     },
-    bookTypes: [],
+    bookTypes: ['caixa'], // Pré-selecionar o livro caixa
     format: 'pdf',
     includeAnalytics: false,
     autoValidation: true,
     digitalSignature: false
   });
+
+  const allERPs = ['bling', 'tiny', 'omie', 'granatum', 'conta_azul', 'sage'];
 
   const bookTypes = [
     { id: 'caixa', name: 'Livro Caixa', required: true, icon: '💰' },
@@ -97,15 +101,6 @@ const AdvancedBookGenerator: React.FC<AdvancedBookGeneratorProps> = ({
   };
 
   const handleGenerate = () => {
-    if (config.erps.length === 0) {
-      toast({
-        title: "Erro",
-        description: "Selecione pelo menos um ERP",
-        variant: "destructive"
-      });
-      return;
-    }
-
     if (config.bookTypes.length === 0) {
       toast({
         title: "Erro",
@@ -113,6 +108,14 @@ const AdvancedBookGenerator: React.FC<AdvancedBookGeneratorProps> = ({
         variant: "destructive"
       });
       return;
+    }
+
+    // Se não há ERPs selecionados, usar dados simulados
+    if (config.erps.length === 0) {
+      toast({
+        title: "Gerando com dados simulados",
+        description: "Nenhum ERP selecionado. Usando dados de exemplo para demonstração.",
+      });
     }
 
     onGenerateBooks(config);
@@ -131,6 +134,9 @@ const AdvancedBookGenerator: React.FC<AdvancedBookGeneratorProps> = ({
     return totalRecords;
   };
 
+  const canGenerate = config.bookTypes.length > 0 && !isGenerating;
+  const hasConnectedERPs = availableERPs.length > 0;
+
   return (
     <div className="space-y-6">
       <Card>
@@ -141,23 +147,36 @@ const AdvancedBookGenerator: React.FC<AdvancedBookGeneratorProps> = ({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Alerta informativo */}
+          {!hasConnectedERPs && (
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                Nenhum ERP conectado. Você pode gerar livros com dados de exemplo ou conectar um ERP na aba "Integrações" para usar dados reais.
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Seleção de ERPs */}
           <div>
             <Label className="text-base font-semibold mb-3 block">
-              Fontes de Dados (ERPs)
+              Fontes de Dados (ERPs) - Opcional
             </Label>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {availableERPs.map(erpId => {
+              {allERPs.map(erpId => {
                 const hasData = integrationData[erpId];
+                const isConnected = availableERPs.includes(erpId);
                 return (
                   <div key={erpId} className={`flex items-center space-x-3 p-3 border rounded-lg ${
-                    hasData ? 'border-green-200 bg-green-50' : 'border-gray-200'
+                    hasData ? 'border-green-200 bg-green-50' : 
+                    isConnected ? 'border-blue-200 bg-blue-50' : 
+                    'border-gray-200 bg-gray-50'
                   }`}>
                     <Checkbox
                       id={erpId}
                       checked={config.erps.includes(erpId)}
                       onCheckedChange={(checked) => handleERPChange(erpId, checked as boolean)}
-                      disabled={!hasData}
+                      disabled={!isConnected}
                     />
                     <Label htmlFor={erpId} className="flex-1">
                       {erpId.charAt(0).toUpperCase() + erpId.slice(1)}
@@ -167,13 +186,20 @@ const AdvancedBookGenerator: React.FC<AdvancedBookGeneratorProps> = ({
                         {(integrationData[erpId].sales?.length || 0) + 
                          (integrationData[erpId].purchases?.length || 0)} registros
                       </span>
+                    ) : isConnected ? (
+                      <span className="text-xs text-blue-600">Conectado</span>
                     ) : (
-                      <span className="text-xs text-gray-400">Sem dados</span>
+                      <span className="text-xs text-gray-400">Desconectado</span>
                     )}
                   </div>
                 );
               })}
             </div>
+            {config.erps.length === 0 && (
+              <p className="text-sm text-gray-600 mt-2">
+                💡 Sem ERPs selecionados? Não tem problema! Você pode gerar livros com dados de exemplo para testar o sistema.
+              </p>
+            )}
           </div>
 
           {/* Período */}
@@ -225,7 +251,7 @@ const AdvancedBookGenerator: React.FC<AdvancedBookGeneratorProps> = ({
                       {book.name}
                     </Label>
                     {book.required && (
-                      <span className="text-xs text-blue-600 block">Obrigatório</span>
+                      <span className="text-xs text-blue-600 block">Obrigatório para Simples Nacional</span>
                     )}
                   </div>
                 </div>
@@ -302,20 +328,25 @@ const AdvancedBookGenerator: React.FC<AdvancedBookGeneratorProps> = ({
           </div>
 
           {/* Informações de Dados */}
-          {config.erps.length > 0 && (
-            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-center space-x-2 mb-2">
-                <TrendingUp className="h-4 w-4 text-blue-600" />
-                <span className="text-sm font-medium text-blue-800">
-                  Dados Disponíveis
-                </span>
-              </div>
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center space-x-2 mb-2">
+              <TrendingUp className="h-4 w-4 text-blue-600" />
+              <span className="text-sm font-medium text-blue-800">
+                Resumo da Geração
+              </span>
+            </div>
+            {config.erps.length > 0 ? (
               <p className="text-sm text-blue-700">
                 {getDataAvailability()} registros encontrados nos ERPs selecionados.
                 Estimativa de {config.bookTypes.length} livros a serem gerados.
               </p>
-            </div>
-          )}
+            ) : (
+              <p className="text-sm text-blue-700">
+                Gerando {config.bookTypes.length} livros com dados de exemplo.
+                Perfeito para testar o sistema antes de conectar seus ERPs!
+              </p>
+            )}
+          </div>
 
           {/* Progresso de Geração */}
           {isGenerating && (
@@ -331,12 +362,24 @@ const AdvancedBookGenerator: React.FC<AdvancedBookGeneratorProps> = ({
           {/* Botão de Geração */}
           <Button
             onClick={handleGenerate}
-            disabled={isGenerating || config.erps.length === 0 || config.bookTypes.length === 0}
-            className="w-full h-12 text-base"
+            disabled={!canGenerate}
+            className={`w-full h-12 text-base ${
+              canGenerate 
+                ? 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800' 
+                : ''
+            }`}
           >
             <Download className="h-5 w-5 mr-2" />
             {isGenerating ? 'Gerando Livros...' : 'Gerar Livros Contábeis'}
           </Button>
+          
+          {!canGenerate && !isGenerating && (
+            <p className="text-center text-sm text-gray-500">
+              {config.bookTypes.length === 0 
+                ? 'Selecione pelo menos um tipo de livro para continuar' 
+                : 'Aguarde...'}
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>
