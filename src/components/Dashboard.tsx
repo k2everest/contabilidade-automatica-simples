@@ -1,541 +1,301 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   FileText, 
-  Settings, 
-  Database, 
-  Activity,
-  Building,
-  RefreshCw,
-  BarChart3,
-  Zap,
-  Bell,
-  Search
+  Download, 
+  Eye, 
+  CheckCircle, 
+  Clock, 
+  BarChart3, 
+  TrendingUp,
+  Building2,
+  Calendar,
+  AlertTriangle,
+  Zap
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
-import { useLocalStorage } from '../hooks/useLocalStorage';
 import { useERPIntegration } from '../hooks/useERPIntegration';
-import ApiKeyForm from './ApiKeyForm';
-import BookDetailsModal from './BookDetailsModal';
-import ERPCard from './ERPCard';
+import { generateBookFile } from '../utils/fileGenerator';
 import SmartDashboard from './SmartDashboard';
 import AdvancedBookGenerator from './AdvancedBookGenerator';
-import type { 
-  Company, 
-  Book, 
-  ERPOption, 
-  SyncHistoryEntry, 
-  ApiKeys
-} from '../types';
-import { generateBookFile } from '../utils/fileGenerator';
+import ReceitaFederalIntegration from './ReceitaFederalIntegration';
+import BookDetailsModal from './BookDetailsModal';
+import ERPCard from './ERPCard';
+import type { Book, ERPOption, BookGenerationConfig } from '../types';
 
-const Dashboard = () => {
-  const [selectedERP, setSelectedERP] = useState('');
-  const [selectedPeriod, setSelectedPeriod] = useState('');
-  const [companies] = useState<Company[]>([
-    { id: 1, name: 'Empresa Exemplo Ltda', cnpj: '12.345.678/0001-90', status: 'Ativo' }
+const Dashboard: React.FC = () => {
+  const [books, setBooks] = useState<Book[]>([
+    { name: 'Livro Caixa', description: 'Registro diário de movimentações financeiras', required: true, status: 'pending' },
+    { name: 'Registro de Inventário', description: 'Controle de estoque de produtos', required: true, status: 'pending' },
+    { name: 'Registro de Compras', description: 'Entradas de mercadorias e serviços', required: true, status: 'pending' },
+    { name: 'Registro de Vendas', description: 'Saídas de mercadorias e serviços', required: false, status: 'pending' },
+    { name: 'Apuração do Lucro Real', description: 'Demonstração do lucro líquido ajustado', required: false, status: 'pending' },
+    { name: 'Prestação de Serviços', description: 'Registro de serviços prestados a terceiros', required: false, status: 'pending' }
   ]);
-  const [books, setBooks] = useState<Book[]>([]);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [selectedBook, setSelectedBook] = useState<Book | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
-  const [apiKeys, setApiKeys] = useLocalStorage<ApiKeys>('erp-api-keys', {});
-  const [syncHistory, setSyncHistory] = useState<SyncHistoryEntry[]>([]);
-  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
-  const [currentERPConfig, setCurrentERPConfig] = useState<ERPOption | null>(null);
-  const [showBookDetails, setShowBookDetails] = useState(false);
-  const [selectedBook, setSelectedBook] = useState<Book | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-
-  const {
-    connectionStatus,
-    integrationData,
-    isSyncing,
-    testConnection,
-    syncData,
-    setConnectionStatus
-  } = useERPIntegration();
+  const { connectionStatus, integrationData, testConnection, syncData, setConnectionStatus, setIntegrationData } = useERPIntegration();
 
   const erpOptions: ERPOption[] = [
-    { 
-      value: 'bling', 
-      label: 'Bling ERP', 
-      color: 'bg-blue-500',
-      status: connectionStatus.bling || 'disconnected',
-      apiEndpoint: 'https://bling.com.br/Api/v2/',
-      requiredFields: ['apiKey'],
-      description: 'ERP completo para e-commerce e varejo'
-    },
-    { 
-      value: 'tiny', 
-      label: 'Tiny ERP', 
-      color: 'bg-green-500',
-      status: connectionStatus.tiny || 'disconnected',
-      apiEndpoint: 'https://api.tiny.com.br/api2/',
-      requiredFields: ['token', 'formato'],
-      description: 'Gestão empresarial integrada'
-    },
-    { 
-      value: 'omie', 
-      label: 'Omie', 
-      color: 'bg-purple-500',
-      status: connectionStatus.omie || 'disconnected',
-      apiEndpoint: 'https://app.omie.com.br/api/v1/',
-      requiredFields: ['appKey', 'appSecret'],
-      description: 'Sistema de gestão empresarial na nuvem'
-    },
-    { 
-      value: 'granatum', 
-      label: 'Granatum', 
-      color: 'bg-orange-500',
-      status: connectionStatus.granatum || 'disconnected',
-      apiEndpoint: 'https://api.granatum.com.br/v1/',
-      requiredFields: ['apiKey'],
-      description: 'Controle financeiro empresarial'
-    },
-    { 
-      value: 'conta_azul', 
-      label: 'ContaAzul', 
-      color: 'bg-cyan-500',
-      status: connectionStatus.conta_azul || 'disconnected',
-      apiEndpoint: 'https://api.contaazul.com/',
-      requiredFields: ['clientId', 'clientSecret'],
-      description: 'Gestão financeira para PMEs'
-    },
-    { 
-      value: 'sage', 
-      label: 'Sage', 
-      color: 'bg-indigo-500',
-      status: connectionStatus.sage || 'disconnected',
-      apiEndpoint: 'https://api.sage.com/v1/',
-      requiredFields: ['apiKey', 'companyId'],
-      description: 'Soluções de gestão empresarial'
-    }
+    { value: 'bling', label: 'Bling', color: '#643594', status: 'disconnected', apiEndpoint: 'https://api.bling.com.br', requiredFields: ['apiKey', 'cnpj'], description: 'Plataforma de gestão para micro e pequenas empresas.' },
+    { value: 'tiny', label: 'Tiny ERP', color: '#2196F3', status: 'disconnected', apiEndpoint: 'https://api.tiny.com.br', requiredFields: ['apiKey', 'user'], description: 'Sistema de gestão empresarial (ERP) online.' },
+    { value: 'omie', label: 'Omie', color: '#FF9800', status: 'disconnected', apiEndpoint: 'https://api.omie.com.br', requiredFields: ['appKey', 'appSecret'], description: 'ERP para pequenas e médias empresas.' },
+    { value: 'granatum', label: 'Granatum', color: '#4CAF50', status: 'disconnected', apiEndpoint: 'https://api.granatum.com.br', requiredFields: ['accessToken'], description: 'Sistema de gestão financeira online.' },
+    { value: 'conta_azul', label: 'Conta Azul', color: '#3F51B5', status: 'disconnected', apiEndpoint: 'https://api.contaazul.com', requiredFields: ['clientId', 'clientSecret'], description: 'Plataforma de gestão para micro e pequenas empresas.' },
+    { value: 'sage', label: 'Sage', color: '#03A9F4', status: 'disconnected', apiEndpoint: 'https://api.sage.com', requiredFields: ['apiKey'], description: 'Software de gestão empresarial para PMEs.' }
   ];
 
-  const requiredBooks: Book[] = [
-    {
-      name: 'Livro Caixa',
-      description: 'Registro de todas as movimentações financeiras',
-      required: true,
-      status: 'pending'
-    },
-    {
-      name: 'Livro Registro de Inventário',
-      description: 'Controle de estoque e inventário',
-      required: true,
-      status: 'pending'
-    },
-    {
-      name: 'Livro Registro de Compras',
-      description: 'Registro de todas as compras realizadas',
-      required: true,
-      status: 'pending'
-    },
-    {
-      name: 'Livro de Apuração do Lucro Real',
-      description: 'Para empresas optantes pelo Lucro Real',
-      required: false,
-      status: 'pending'
-    }
-  ];
-
-  const addSyncHistory = (message: string) => {
-    setSyncHistory(prev => [{
-      id: Date.now(),
-      message,
-      timestamp: new Date().toISOString()
-    }, ...prev.slice(0, 9)]);
+  // Mock company data for demonstration
+  const mockCompany = {
+    cnpj: '12.345.678/0001-90',
+    razaoSocial: 'Empresa Exemplo Ltda',
+    municipio: 'São Paulo',
+    uf: 'SP'
   };
 
-  const openApiKeyModal = (erpType: string) => {
-    setCurrentERPConfig(erpOptions.find(e => e.value === erpType) || null);
-    setShowApiKeyModal(true);
-  };
-
-  const saveApiKeys = (erpType: string, keys: Record<string, string>) => {
-    setApiKeys(prev => ({ ...prev, [erpType]: keys }));
-    setShowApiKeyModal(false);
-    const currentERP = erpOptions.find(e => e.value === erpType);
-    if (currentERP) {
-      addSyncHistory(`Chaves de API configuradas para ${currentERP.label}`);
-      toast({
-        title: "Sucesso",
-        description: `Chaves configuradas para ${currentERP.label}`,
-      });
-    }
-  };
-
-  const handleERPTest = async (erpType: string) => {
-    const erp = erpOptions.find(e => e.value === erpType);
-    const keys = apiKeys[erpType];
-    
-    if (!keys || !erp) {
-      toast({
-        title: "Erro",
-        description: "Configure as chaves de API primeiro",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const success = await testConnection(erpType, erp, keys);
-    if (success) {
-      addSyncHistory(`Conexão com ${erp.label} estabelecida com sucesso`);
-    } else {
-      addSyncHistory(`Erro ao conectar com ${erp.label}`);
-    }
-  };
-
-  const handleERPSync = async (erpType: string) => {
-    const erp = erpOptions.find(e => e.value === erpType);
-    if (!erp) return;
-
-    addSyncHistory(`Iniciando sincronização com ${erp.label}...`);
-    const data = await syncData(erpType, erp);
-    
-    if (data) {
-      addSyncHistory(`Sincronização com ${erp.label} concluída - ${data.sales?.length || 0} vendas, ${data.purchases?.length || 0} compras`);
-    }
-  };
-
-  const handleGenerateBooks = async (config: any) => {
-    setIsGenerating(true);
-    setGenerationProgress(0);
-    
-    try {
-      // Simular progresso de geração
-      const progressSteps = [20, 40, 60, 80, 100];
-      for (const step of progressSteps) {
-        await new Promise(resolve => setTimeout(resolve, 800));
-        setGenerationProgress(step);
-      }
-
-      // Gerar livros baseados na configuração
-      const generatedBooks: Book[] = config.bookTypes.map((bookType: string) => ({
-        name: `Livro ${bookType.charAt(0).toUpperCase() + bookType.slice(1)}`,
-        description: `Livro contábil gerado automaticamente`,
-        required: ['caixa', 'inventario', 'compras'].includes(bookType),
-        status: 'completed' as const,
-        generatedAt: new Date().toISOString(),
-        fileName: `${bookType}_${config.period.start}_${config.period.end}.${config.format}`,
-        recordCount: Math.floor(Math.random() * 500) + 100,
-        format: config.format,
-        period: `${config.period.start} a ${config.period.end}`
-      }));
-
-      setBooks(generatedBooks);
-      toast({
-        title: "Sucesso!",
-        description: `${generatedBooks.length} livros contábeis gerados com sucesso!`,
-      });
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Falha ao gerar livros contábeis",
-        variant: "destructive"
-      });
-    } finally {
-      setIsGenerating(false);
-      setGenerationProgress(0);
-    }
-  };
-
-  const openBookDetails = (book: Book) => {
+  const handleBookClick = (book: Book) => {
     setSelectedBook(book);
-    setShowBookDetails(true);
+    setIsModalOpen(true);
   };
 
-  const updateBook = (updatedBook: Book) => {
-    setBooks(prevBooks => 
-      prevBooks.map(book => 
-        book.name === updatedBook.name ? updatedBook : book
-      )
-    );
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+  };
+
+  const handleBookSave = (updatedBook: Book) => {
+    setBooks(books.map(book => book.name === updatedBook.name ? updatedBook : book));
+    setIsModalOpen(false);
     toast({
-      title: "Sucesso",
-      description: "Detalhes do livro atualizados!",
+      title: "Livro atualizado",
+      description: `As informações do livro ${updatedBook.name} foram atualizadas com sucesso.`,
     });
   };
 
-  const downloadBook = (book: Book) => {
-    try {
-      generateBookFile(book, book.format || 'pdf');
-      toast({
-        title: "Download concluído",
-        description: `Arquivo ${book.fileName} baixado com sucesso!`,
-      });
-    } catch (error) {
-      toast({
-        title: "Erro no download",
-        description: "Falha ao baixar o arquivo. Tente novamente.",
-        variant: "destructive"
-      });
+  const handleBookDownload = (book: Book) => {
+    setBooks(books.map(b => {
+      if (b.name === book.name) {
+        return { ...b, generatedAt: new Date().toISOString() };
+      }
+      return b;
+    }));
+  };
+
+  const handleManualGeneration = (bookName: string) => {
+    const bookToUpdate = books.find(book => book.name === bookName);
+    if (bookToUpdate) {
+      setIsGenerating(true);
+      setGenerationProgress(30);
+
+      setTimeout(() => {
+        generateBookFile(bookToUpdate);
+        setBooks(books.map(book => {
+          if (book.name === bookName) {
+            return { ...book, status: 'completed', generatedAt: new Date().toISOString() };
+          }
+          return book;
+        }));
+        setGenerationProgress(100);
+        setIsGenerating(false);
+        toast({
+          title: "Livro gerado",
+          description: `O livro ${bookName} foi gerado com sucesso!`,
+        });
+      }, 2000);
     }
   };
 
-  const connectedERPs = erpOptions.filter(erp => erp.status === 'connected');
-  const stats = [
-    { title: 'Empresas Ativas', value: companies.length.toString(), icon: Building, color: 'text-blue-600' },
-    { title: 'Livros Gerados', value: books.length.toString(), icon: FileText, color: 'text-green-600' },
-    { title: 'ERPs Conectados', value: connectedERPs.length.toString(), icon: Database, color: 'text-purple-600' },
-    { title: 'Última Sync', value: syncHistory[0] ? 'Hoje' : 'Nunca', icon: RefreshCw, color: 'text-emerald-600' }
-  ];
+  const handleAdvancedGeneration = useCallback((config: BookGenerationConfig) => {
+    setIsGenerating(true);
+    setGenerationProgress(10);
+
+    const totalSteps = config.bookTypes.length * 3;
+    let completedSteps = 0;
+
+    const updateProgress = () => {
+      completedSteps++;
+      const progress = Math.round((completedSteps / totalSteps) * 100);
+      setGenerationProgress(progress);
+    };
+
+    setTimeout(() => {
+      const generatedBooks = config.bookTypes.map(bookType => {
+        updateProgress();
+        const bookName = books.find(b => b.name.toLowerCase().includes(bookType.toLowerCase()))?.name || 'Livro Desconhecido';
+        updateProgress();
+        generateBookFile({ name: bookName });
+        updateProgress();
+        return { name: bookName, status: 'completed', generatedAt: new Date().toISOString() };
+      });
+
+      setBooks(prevBooks => {
+        return prevBooks.map(book => {
+          const generatedBook = generatedBooks.find(gb => book.name === gb.name);
+          return generatedBook ? { ...book, status: 'completed', generatedAt: generatedBook.generatedAt } : book;
+        });
+      });
+
+      setIsGenerating(false);
+      setGenerationProgress(100);
+      toast({
+        title: "Livros gerados",
+        description: `Os livros foram gerados com sucesso!`,
+      });
+    }, 2000);
+  }, [books]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-      {/* Header Aprimorado */}
-      <header className="bg-white shadow-sm border-b backdrop-blur-lg bg-white/90">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl p-3 shadow-lg">
-                <FileText className="h-7 w-7 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Contabilidade Inteligente</h1>
-                <p className="text-sm text-gray-500">Simples Nacional - Automação Contábil Avançada</p>
-              </div>
+    <div className="min-h-screen bg-gray-50">
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Sistema Contábil Simples Nacional</h1>
+              <p className="text-sm text-gray-600">Gestão automatizada de livros contábeis</p>
             </div>
             <div className="flex items-center space-x-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Buscar livros, relatórios..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 w-64"
-                />
-              </div>
-              <Button variant="outline" size="sm">
-                <Bell className="h-4 w-4 mr-2" />
-                Notificações
-              </Button>
-              <Badge variant="outline" className="bg-gradient-to-r from-green-100 to-blue-100">
-                {new Date().toLocaleDateString('pt-BR')}
+              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                Simples Nacional
+              </Badge>
+              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                {mockCompany.cnpj}
               </Badge>
             </div>
           </div>
         </div>
-      </header>
+      </div>
 
-      {/* Main Content */}
-      <main className="p-6">
-        <Tabs defaultValue="dashboard" className="w-full">
-          <TabsList className="grid w-full grid-cols-6 mb-8">
-            <TabsTrigger value="dashboard" className="flex items-center space-x-2">
-              <BarChart3 className="h-4 w-4" />
-              <span>Analytics</span>
-            </TabsTrigger>
-            <TabsTrigger value="generate" className="flex items-center space-x-2">
-              <Zap className="h-4 w-4" />
-              <span>Gerar Livros</span>
-            </TabsTrigger>
-            <TabsTrigger value="books" className="flex items-center space-x-2">
-              <FileText className="h-4 w-4" />
-              <span>Meus Livros</span>
-            </TabsTrigger>
-            <TabsTrigger value="integrations" className="flex items-center space-x-2">
-              <Database className="h-4 w-4" />
-              <span>Integrações</span>
-            </TabsTrigger>
-            <TabsTrigger value="companies" className="flex items-center space-x-2">
-              <Building className="h-4 w-4" />
-              <span>Empresas</span>
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="flex items-center space-x-2">
-              <Settings className="h-4 w-4" />
-              <span>Configurações</span>
-            </TabsTrigger>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="overview">Visão Geral</TabsTrigger>
+            <TabsTrigger value="books">Livros Contábeis</TabsTrigger>
+            <TabsTrigger value="integrations">Integrações ERP</TabsTrigger>
+            <TabsTrigger value="generator">Gerador Avançado</TabsTrigger>
+            <TabsTrigger value="receita">Receita Federal</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="dashboard" className="space-y-6 mt-6">
-            <SmartDashboard integrationData={integrationData} />
+          <TabsContent value="overview">
+            <SmartDashboard 
+              books={books}
+              integrationData={integrationData}
+              erpConnections={Object.keys(connectionStatus).filter(erp => connectionStatus[erp] === 'connected')}
+            />
           </TabsContent>
 
-          <TabsContent value="generate" className="space-y-6 mt-6">
+          <TabsContent value="books">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <FileText className="h-5 w-5 text-gray-500" />
+                  <span>Livros Contábeis</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {books.map(book => (
+                  <div key={book.name} className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer" onClick={() => handleBookClick(book)}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">{book.name}</h3>
+                        <p className="text-sm text-gray-500">{book.description}</p>
+                      </div>
+                      {book.status === 'completed' ? (
+                        <div className="flex items-center space-x-2 text-green-500">
+                          <CheckCircle className="h-4 w-4" />
+                          <span>Gerado</span>
+                        </div>
+                      ) : (
+                        <Button variant="outline" size="sm" onClick={(e) => {
+                          e.stopPropagation();
+                          handleManualGeneration(book.name);
+                        }} disabled={isGenerating}>
+                          {isGenerating ? (
+                            <>
+                              <Clock className="mr-2 h-4 w-4 animate-spin" />
+                              Gerando...
+                            </>
+                          ) : (
+                            <>
+                              <Download className="mr-2 h-4 w-4" />
+                              Gerar
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                    {book.status === 'completed' && (
+                      <div className="flex items-center space-x-4 mt-3">
+                        <div className="text-xs text-gray-400">
+                          <Calendar className="h-4 w-4 inline-block mr-1" />
+                          Gerado em: {new Date(book.generatedAt || '').toLocaleString('pt-BR')}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {isGenerating && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Gerando livros...</span>
+                      <span className="text-sm text-gray-500">{generationProgress}%</span>
+                    </div>
+                    <Progress value={generationProgress} className="h-2" />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="integrations">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {erpOptions.map(erp => (
+                <ERPCard
+                  key={erp.value}
+                  erp={erp}
+                  connectionStatus={connectionStatus[erp.value] || 'disconnected'}
+                  integrationData={integrationData[erp.value]}
+                  testConnection={testConnection}
+                  syncData={syncData}
+                  setConnectionStatus={setConnectionStatus}
+                  setIntegrationData={setIntegrationData}
+                />
+              ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="generator">
             <AdvancedBookGenerator
-              availableERPs={connectedERPs.map(erp => erp.value)}
+              availableERPs={Object.keys(connectionStatus).filter(erp => connectionStatus[erp] === 'connected')}
               integrationData={integrationData}
-              onGenerateBooks={handleGenerateBooks}
+              onGenerateBooks={handleAdvancedGeneration}
               isGenerating={isGenerating}
               generationProgress={generationProgress}
             />
           </TabsContent>
 
-          <TabsContent value="books" className="space-y-6 mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Meus Livros Contábeis</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {books.length > 0 ? (
-                    books.map((book, index) => (
-                      <div key={index} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">
-                        <div className="flex items-center space-x-3">
-                          <FileText className="h-5 w-5 text-green-500" />
-                          <div>
-                            <h4 className="font-medium text-gray-900">{book.name}</h4>
-                            <p className="text-sm text-gray-500">{book.description}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Badge variant="secondary">
-                            {book.recordCount} registros
-                          </Badge>
-                          <Button
-                            onClick={() => openBookDetails(book)}
-                            size="sm"
-                            variant="outline"
-                          >
-                            Ver Detalhes
-                          </Button>
-                          <Button
-                            onClick={() => downloadBook(book)}
-                            size="sm"
-                            variant="outline"
-                          >
-                            Download
-                          </Button>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-center text-gray-500 py-8">
-                      Nenhum livro gerado ainda. Vá para a aba "Gerar Livros" para começar.
-                    </p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="integrations" className="space-y-6 mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Integrações ERP</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {erpOptions.map(erp => (
-                    <ERPCard
-                      key={erp.value}
-                      erp={erp}
-                      onConfigureKeys={() => openApiKeyModal(erp.value)}
-                      onTestConnection={() => handleERPTest(erp.value)}
-                      onSyncData={() => handleERPSync(erp.value)}
-                      isConfigured={!!apiKeys[erp.value]}
-                      isSyncing={isSyncing}
-                      lastSyncData={integrationData[erp.value]}
-                    />
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="companies" className="space-y-6 mt-6">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Empresas Cadastradas</CardTitle>
-                <Button>Adicionar Empresa</Button>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {companies.map(company => (
-                    <div key={company.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="font-medium text-gray-900">{company.name}</h4>
-                          <p className="text-sm text-gray-500">CNPJ: {company.cnpj}</p>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Badge variant="default">{company.status}</Badge>
-                          <Button variant="ghost" size="sm">
-                            <Settings className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="settings" className="space-y-6 mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Configurações do Sistema</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <div>
-                    <h4 className="font-medium text-gray-900 mb-4">Configurações Gerais</h4>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">Backup automático</span>
-                        <input type="checkbox" className="rounded" defaultChecked />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">Notificações por email</span>
-                        <input type="checkbox" className="rounded" defaultChecked />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">Validação automática</span>
-                        <input type="checkbox" className="rounded" defaultChecked />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          <TabsContent value="receita">
+            <ReceitaFederalIntegration 
+              books={books}
+              company={mockCompany}
+            />
           </TabsContent>
         </Tabs>
-      </main>
 
-      {/* Modais */}
-      {selectedBook && (
         <BookDetailsModal
-          book={selectedBook}
-          isOpen={showBookDetails}
-          onClose={() => setShowBookDetails(false)}
-          onSave={updateBook}
-          onDownload={downloadBook}
+          book={selectedBook || books[0]}
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          onSave={handleBookSave}
+          onDownload={handleBookDownload}
         />
-      )}
-
-      <Dialog open={showApiKeyModal} onOpenChange={setShowApiKeyModal}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              Configurar {currentERPConfig?.label}
-            </DialogTitle>
-          </DialogHeader>
-          
-          {currentERPConfig && (
-            <div className="space-y-4">
-              <div className="text-sm text-gray-600 space-y-2">
-                <p>Endpoint: <code className="bg-gray-100 px-2 py-1 rounded text-xs">{currentERPConfig.apiEndpoint}</code></p>
-                <p>Campos obrigatórios: {currentERPConfig.requiredFields.join(', ')}</p>
-              </div>
-              
-              <ApiKeyForm
-                erpType={currentERPConfig.value}
-                requiredFields={currentERPConfig.requiredFields}
-                onSave={saveApiKeys}
-                onCancel={() => setShowApiKeyModal(false)}
-                currentKeys={apiKeys[currentERPConfig.value] || {}}
-              />
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      </div>
     </div>
   );
 };
