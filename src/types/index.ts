@@ -1,3 +1,4 @@
+
 export interface Company {
   id: number;
   name: string;
@@ -56,4 +57,42 @@ export interface ApiKeys {
 
 export interface IntegrationData {
   [key: string]: ERPData;
+}
+
+export interface BookGenerationConfig {
+  erps: string[];
+  period: {
+    start: string;
+    end: string;
+  };
+  bookTypes: string[];
+  format: string;
+  includeAnalytics: boolean;
+  autoValidation: boolean;
+  digitalSignature: boolean;
+}
+
+export interface DashboardMetrics {
+  totalSales: number;
+  totalPurchases: number;
+  totalProducts: number;
+  totalCustomers: number;
+  salesTrend: number;
+  profit: number;
+  profitMargin: number;
+}
+
+export interface NotificationSettings {
+  email: boolean;
+  browser: boolean;
+  sms: boolean;
+  frequency: 'immediate' | 'daily' | 'weekly';
+}
+
+export interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  language: 'pt-BR' | 'en-US';
+  timezone: string;
+  dateFormat: string;
+  notifications: NotificationSettings;
 }
