@@ -14,29 +14,32 @@ import {
   TrendingUp,
   Database
 } from 'lucide-react';
-import type { ERPOption } from '../types';
+import type { ERPOption, ERPData } from '../types';
 
 interface ERPCardProps {
   erp: ERPOption;
-  onConfigureKeys: () => void;
-  onTestConnection: () => void;
-  onSyncData: () => void;
-  isConfigured: boolean;
-  isSyncing: boolean;
-  lastSyncData?: any;
+  connectionStatus: 'connected' | 'disconnected' | 'error' | 'testing';
+  integrationData?: ERPData;
+  testConnection: (erpType: string, erp: ERPOption, keys: Record<string, string>) => Promise<boolean>;
+  syncData: (erpType: string, erp: ERPOption) => Promise<ERPData | null>;
+  setConnectionStatus: (status: any) => void;
+  setIntegrationData: (data: any) => void;
 }
 
 const ERPCard: React.FC<ERPCardProps> = ({
   erp,
-  onConfigureKeys,
-  onTestConnection,
-  onSyncData,
-  isConfigured,
-  isSyncing,
-  lastSyncData
+  connectionStatus,
+  integrationData,
+  testConnection,
+  syncData,
+  setConnectionStatus,
+  setIntegrationData
 }) => {
+  const [isConfigured, setIsConfigured] = React.useState(false);
+  const [isSyncing, setIsSyncing] = React.useState(false);
+
   const getStatusIcon = () => {
-    switch (erp.status) {
+    switch (connectionStatus) {
       case 'connected': return <Wifi className="h-4 w-4 text-green-500" />;
       case 'error': return <AlertTriangle className="h-4 w-4 text-red-500" />;
       case 'testing': return <RefreshCw className="h-4 w-4 text-blue-500 animate-spin" />;
@@ -45,7 +48,7 @@ const ERPCard: React.FC<ERPCardProps> = ({
   };
 
   const getStatusBadge = () => {
-    switch (erp.status) {
+    switch (connectionStatus) {
       case 'connected': return <Badge className="bg-green-100 text-green-800">Conectado</Badge>;
       case 'error': return <Badge variant="destructive">Erro</Badge>;
       case 'testing': return <Badge variant="secondary">Testando...</Badge>;
@@ -53,15 +56,31 @@ const ERPCard: React.FC<ERPCardProps> = ({
     }
   };
 
-  const syncProgress = lastSyncData ? 
-    Math.min(100, (Object.keys(lastSyncData).length - 1) * 25) : 0;
+  const handleConfigureKeys = () => {
+    // Mock configuration - in real app this would open a modal
+    setIsConfigured(true);
+  };
+
+  const handleTestConnection = async () => {
+    const mockKeys = { apiKey: 'test-key', cnpj: '12345678000190' };
+    await testConnection(erp.value, erp, mockKeys);
+  };
+
+  const handleSyncData = async () => {
+    setIsSyncing(true);
+    await syncData(erp.value, erp);
+    setIsSyncing(false);
+  };
+
+  const syncProgress = integrationData ? 
+    Math.min(100, (Object.keys(integrationData).length - 1) * 25) : 0;
 
   return (
     <Card className="hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
       <CardContent className="p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-3">
-            <div className={`w-4 h-4 rounded-full ${erp.color}`}></div>
+            <div className={`w-4 h-4 rounded-full`} style={{ backgroundColor: erp.color }}></div>
             <div>
               <h4 className="font-semibold text-gray-900">{erp.label}</h4>
               <p className="text-xs text-gray-500">{erp.description}</p>
@@ -73,7 +92,7 @@ const ERPCard: React.FC<ERPCardProps> = ({
           </div>
         </div>
 
-        {lastSyncData && (
+        {integrationData && (
           <div className="mb-4 p-3 bg-gray-50 rounded-lg">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-gray-700">Dados Sincronizados</span>
@@ -82,19 +101,19 @@ const ERPCard: React.FC<ERPCardProps> = ({
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="flex justify-between">
                 <span>Vendas:</span>
-                <span className="font-medium">{lastSyncData.sales?.length || 0}</span>
+                <span className="font-medium">{integrationData.sales?.length || 0}</span>
               </div>
               <div className="flex justify-between">
                 <span>Compras:</span>
-                <span className="font-medium">{lastSyncData.purchases?.length || 0}</span>
+                <span className="font-medium">{integrationData.purchases?.length || 0}</span>
               </div>
               <div className="flex justify-between">
                 <span>Estoque:</span>
-                <span className="font-medium">{lastSyncData.inventory?.length || 0}</span>
+                <span className="font-medium">{integrationData.inventory?.length || 0}</span>
               </div>
               <div className="flex justify-between">
                 <span>Financeiro:</span>
-                <span className="font-medium">{lastSyncData.financial?.length || 0}</span>
+                <span className="font-medium">{integrationData.financial?.length || 0}</span>
               </div>
             </div>
             <Progress value={syncProgress} className="mt-2 h-2" />
@@ -106,7 +125,7 @@ const ERPCard: React.FC<ERPCardProps> = ({
             <Button
               variant="outline"
               size="sm"
-              onClick={onConfigureKeys}
+              onClick={handleConfigureKeys}
               className="flex-1"
             >
               <Key className="h-3 w-3 mr-1" />
@@ -115,8 +134,8 @@ const ERPCard: React.FC<ERPCardProps> = ({
             <Button
               variant="outline"
               size="sm"
-              onClick={onTestConnection}
-              disabled={!isConfigured || erp.status === 'testing'}
+              onClick={handleTestConnection}
+              disabled={!isConfigured || connectionStatus === 'testing'}
               className="flex-1"
             >
               <Link className="h-3 w-3 mr-1" />
@@ -124,11 +143,11 @@ const ERPCard: React.FC<ERPCardProps> = ({
             </Button>
           </div>
           
-          {erp.status === 'connected' && (
+          {connectionStatus === 'connected' && (
             <Button
               variant="default"
               size="sm"
-              onClick={onSyncData}
+              onClick={handleSyncData}
               disabled={isSyncing}
               className="w-full"
             >
@@ -138,11 +157,11 @@ const ERPCard: React.FC<ERPCardProps> = ({
           )}
         </div>
 
-        {lastSyncData && (
+        {integrationData && (
           <div className="mt-3 pt-3 border-t border-gray-100">
             <div className="flex items-center justify-between text-xs text-gray-500">
               <span>Última Sync:</span>
-              <span>{new Date(lastSyncData.lastSync).toLocaleString('pt-BR')}</span>
+              <span>{new Date(integrationData.lastSync).toLocaleString('pt-BR')}</span>
             </div>
           </div>
         )}

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -12,12 +11,15 @@ import {
   AlertCircle,
   CheckCircle2
 } from 'lucide-react';
+import type { Book, IntegrationData } from '../types';
 
 interface SmartDashboardProps {
-  integrationData: any;
+  books: Book[];
+  integrationData: IntegrationData;
+  erpConnections: string[];
 }
 
-const SmartDashboard: React.FC<SmartDashboardProps> = ({ integrationData }) => {
+const SmartDashboard: React.FC<SmartDashboardProps> = ({ books, integrationData, erpConnections }) => {
   // Calcular métricas inteligentes dos dados integrados
   const calculateMetrics = () => {
     let totalSales = 0;
@@ -67,6 +69,11 @@ const SmartDashboard: React.FC<SmartDashboardProps> = ({ integrationData }) => {
 
   const metrics = calculateMetrics();
   const hasData = Object.keys(integrationData).length > 0;
+
+  // Calculate compliance metrics based on books
+  const completedBooks = books.filter(book => book.status === 'completed').length;
+  const totalBooks = books.length;
+  const compliancePercentage = totalBooks > 0 ? (completedBooks / totalBooks) * 100 : 0;
 
   if (!hasData) {
     return (
@@ -178,22 +185,22 @@ const SmartDashboard: React.FC<SmartDashboardProps> = ({ integrationData }) => {
         <CardContent>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">ERPs Conectados</span>
+              <span className="text-sm text-gray-500">{erpConnections.length}/6</span>
+            </div>
+            <Progress value={(erpConnections.length / 6) * 100} className="h-2" />
+            
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Livros Gerados</span>
+              <span className="text-sm text-gray-500">{completedBooks}/{totalBooks}</span>
+            </div>
+            <Progress value={compliancePercentage} className="h-2" />
+            
+            <div className="flex items-center justify-between">
               <span className="text-sm font-medium">Dados Sincronizados</span>
-              <span className="text-sm text-gray-500">100%</span>
+              <span className="text-sm text-gray-500">{hasData ? '100%' : '0%'}</span>
             </div>
-            <Progress value={100} className="h-2" />
-            
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Livros Obrigatórios</span>
-              <span className="text-sm text-gray-500">75%</span>
-            </div>
-            <Progress value={75} className="h-2" />
-            
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Relatórios Mensais</span>
-              <span className="text-sm text-gray-500">60%</span>
-            </div>
-            <Progress value={60} className="h-2" />
+            <Progress value={hasData ? 100 : 0} className="h-2" />
           </div>
         </CardContent>
       </Card>
