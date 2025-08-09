@@ -4,6 +4,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import ApiKeyForm from '@/components/ApiKeyForm';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { 
   Wifi, 
   WifiOff, 
@@ -37,6 +40,13 @@ const ERPCard: React.FC<ERPCardProps> = ({
 }) => {
   const [isConfigured, setIsConfigured] = React.useState(false);
   const [isSyncing, setIsSyncing] = React.useState(false);
+  const [isDialogOpen, setIsDialogOpen] = React.useState(false);
+  const [apiKeys, setApiKeys] = useLocalStorage<Record<string, string>>(`erpKeys_${erp.value}`, {});
+
+  React.useEffect(() => {
+    const hasAll = erp.requiredFields.every((field) => apiKeys?.[field]?.trim());
+    setIsConfigured(Boolean(hasAll));
+  }, [apiKeys, erp.requiredFields]);
 
   const getStatusIcon = () => {
     switch (connectionStatus) {
@@ -57,13 +67,16 @@ const ERPCard: React.FC<ERPCardProps> = ({
   };
 
   const handleConfigureKeys = () => {
-    // Mock configuration - in real app this would open a modal
-    setIsConfigured(true);
+    setIsDialogOpen(true);
+  };
+
+  const handleSaveKeys = (erpType: string, keys: Record<string, string>) => {
+    setApiKeys(keys);
+    setIsDialogOpen(false);
   };
 
   const handleTestConnection = async () => {
-    const mockKeys = { apiKey: 'test-key', cnpj: '12345678000190' };
-    await testConnection(erp.value, erp, mockKeys);
+    await testConnection(erp.value, erp, apiKeys || {});
   };
 
   const handleSyncData = async () => {
@@ -165,6 +178,21 @@ const ERPCard: React.FC<ERPCardProps> = ({
             </div>
           </div>
         )}
+
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Configurar credenciais - {erp.label}</DialogTitle>
+            </DialogHeader>
+            <ApiKeyForm
+              erpType={erp.value}
+              requiredFields={erp.requiredFields}
+              currentKeys={apiKeys || {}}
+              onSave={handleSaveKeys}
+              onCancel={() => setIsDialogOpen(false)}
+            />
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
