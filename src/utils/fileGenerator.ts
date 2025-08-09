@@ -41,6 +41,14 @@ const generateMockBookData = (book: any) => {
         valor: (Math.random() * 2000 + 100).toFixed(2),
         imposto: (Math.random() * 200 + 10).toFixed(2)
       });
+    } else if (book.name.includes('Vendas')) {
+      data.push({
+        data: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toLocaleDateString('pt-BR'),
+        cliente: `Cliente ${i}`,
+        documento: `NF-e ${String(i).padStart(8, '0')}`,
+        valor: (Math.random() * 2500 + 100).toFixed(2),
+        tributos: (Math.random() * 250 + 5).toFixed(2)
+      });
     }
   }
   

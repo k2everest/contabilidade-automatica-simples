@@ -23,7 +23,7 @@ import { useERPIntegration } from '../hooks/useERPIntegration';
 import { generateBookFile } from '../utils/fileGenerator';
 import SmartDashboard from './SmartDashboard';
 import AdvancedBookGenerator from './AdvancedBookGenerator';
-import ReceitaFederalIntegration from './ReceitaFederalIntegration';
+import SimplesNacionalIntegration from './SimplesNacionalIntegration';
 import BookDetailsModal from './BookDetailsModal';
 import ERPCard from './ERPCard';
 import type { Book, ERPOption, BookGenerationConfig } from '../types';
@@ -179,7 +179,7 @@ const Dashboard: React.FC = () => {
             <TabsTrigger value="books">Livros Contábeis</TabsTrigger>
             <TabsTrigger value="integrations">Integrações ERP</TabsTrigger>
             <TabsTrigger value="generator">Gerador Avançado</TabsTrigger>
-            <TabsTrigger value="receita">Receita Federal</TabsTrigger>
+            <TabsTrigger value="simples">Simples Nacional</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
@@ -280,11 +280,8 @@ const Dashboard: React.FC = () => {
             />
           </TabsContent>
 
-          <TabsContent value="receita">
-            <ReceitaFederalIntegration 
-              books={books}
-              company={mockCompany}
-            />
+          <TabsContent value="simples">
+            <SimplesNacionalIntegration />
           </TabsContent>
         </Tabs>
 
