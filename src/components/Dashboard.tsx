@@ -50,9 +50,9 @@ const Dashboard: React.FC = () => {
       label: 'Bling',
       color: 'blue',
       status: 'disconnected',
-      apiEndpoint: 'https://www.bling.com.br/Api/v3',
+      apiEndpoint: 'https://api.bling.com.br/Api/v3',
       requiredFields: ['accessToken'],
-      description: 'Sistema de gestão empresarial completo com API REST'
+      description: 'Sistema de gestão empresarial completo com API REST. Requer autorização OAuth 2.0.'
     },
     {
       value: 'omie',
