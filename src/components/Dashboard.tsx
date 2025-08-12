@@ -45,12 +45,60 @@ const Dashboard: React.FC = () => {
   const { connectionStatus, integrationData, testConnection, syncData, setConnectionStatus, setIntegrationData } = useERPIntegration();
 
   const erpOptions: ERPOption[] = [
-    { value: 'bling', label: 'Bling', color: '#643594', status: 'disconnected', apiEndpoint: 'https://api.bling.com.br', requiredFields: ['apiKey', 'cnpj'], description: 'Plataforma de gestão para micro e pequenas empresas.' },
-    { value: 'tiny', label: 'Tiny ERP', color: '#2196F3', status: 'disconnected', apiEndpoint: 'https://api.tiny.com.br', requiredFields: ['apiKey', 'user'], description: 'Sistema de gestão empresarial (ERP) online.' },
-    { value: 'omie', label: 'Omie', color: '#FF9800', status: 'disconnected', apiEndpoint: 'https://api.omie.com.br', requiredFields: ['appKey', 'appSecret'], description: 'ERP para pequenas e médias empresas.' },
-    { value: 'granatum', label: 'Granatum', color: '#4CAF50', status: 'disconnected', apiEndpoint: 'https://api.granatum.com.br', requiredFields: ['accessToken'], description: 'Sistema de gestão financeira online.' },
-    { value: 'conta_azul', label: 'Conta Azul', color: '#3F51B5', status: 'disconnected', apiEndpoint: 'https://api.contaazul.com', requiredFields: ['clientId', 'clientSecret'], description: 'Plataforma de gestão para micro e pequenas empresas.' },
-    { value: 'sage', label: 'Sage', color: '#03A9F4', status: 'disconnected', apiEndpoint: 'https://api.sage.com', requiredFields: ['apiKey'], description: 'Software de gestão empresarial para PMEs.' }
+    {
+      value: 'bling',
+      label: 'Bling',
+      color: 'blue',
+      status: 'disconnected',
+      apiEndpoint: 'https://www.bling.com.br/Api/v3',
+      requiredFields: ['accessToken'],
+      description: 'Sistema de gestão empresarial completo com API REST'
+    },
+    {
+      value: 'omie',
+      label: 'Omie',
+      color: 'green',
+      status: 'disconnected',
+      apiEndpoint: 'https://app.omie.com.br/api/v1',
+      requiredFields: ['appKey', 'appSecret'],
+      description: 'ERP online para pequenas e médias empresas'
+    },
+    {
+      value: 'tiny',
+      label: 'Tiny ERP',
+      color: 'orange',
+      status: 'disconnected',
+      apiEndpoint: 'https://api.tiny.com.br/api2',
+      requiredFields: ['token'],
+      description: 'Gestão empresarial online simples e eficiente'
+    },
+    {
+      value: 'contaazul',
+      label: 'ContaAzul',
+      color: 'purple',
+      status: 'disconnected',
+      apiEndpoint: 'https://api.contaazul.com',
+      requiredFields: ['accessToken'],
+      description: 'Gestão financeira e contábil para PMEs'
+    },
+    {
+      value: 'nibo',
+      label: 'Nibo',
+      color: 'red',
+      status: 'disconnected',
+      apiEndpoint: 'https://app.nibo.com.br/api',
+      requiredFields: ['clientId', 'clientSecret'],
+      description: 'Plataforma de gestão financeira e contábil'
+    },
+    {
+      value: 'alterdata',
+      label: 'Alterdata',
+      color: 'indigo',
+      status: 'disconnected',
+      apiEndpoint: 'https://api.alterdata.com.br',
+      requiredFields: ['apiKey', 'companyId'],
+      description: 'Soluções de gestão empresarial e fiscal'
+    }
   ];
 
   // Mock company data for demonstration

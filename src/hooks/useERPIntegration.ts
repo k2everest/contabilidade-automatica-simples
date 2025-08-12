@@ -1,6 +1,7 @@
 
 import { useState, useCallback } from 'react';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import type { ERPOption, ConnectionStatus, ApiKeys, IntegrationData } from '../types';
 
 export const useERPIntegration = () => {
@@ -12,11 +13,13 @@ export const useERPIntegration = () => {
     try {
       setConnectionStatus(prev => ({ ...prev, [erpType]: 'testing' }));
       
-      // Simulate API call with realistic delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const { data, error } = await supabase.functions.invoke(`${erpType}-integration`, {
+        body: { action: 'test', ...keys }
+      });
+
+      if (error) throw error;
       
-      const hasValidKeys = Object.values(keys).every(key => key && key.length > 3);
-      const success = hasValidKeys && Math.random() > 0.2; // 80% success rate for demo
+      const success = data?.success || false;
       
       if (success) {
         setConnectionStatus(prev => ({ ...prev, [erpType]: 'connected' }));
@@ -29,7 +32,7 @@ export const useERPIntegration = () => {
         setConnectionStatus(prev => ({ ...prev, [erpType]: 'error' }));
         toast({
           title: "Falha na Conexão",
-          description: hasValidKeys ? 'Servidor indisponível' : 'Credenciais inválidas',
+          description: data?.error || 'Credenciais inválidas',
           variant: "destructive"
         });
         return false;
@@ -38,7 +41,7 @@ export const useERPIntegration = () => {
       setConnectionStatus(prev => ({ ...prev, [erpType]: 'error' }));
       toast({
         title: "Erro de Conexão",
-        description: 'Erro inesperado na conexão',
+        description: `Erro: ${error.message}`,
         variant: "destructive"
       });
       return false;
@@ -57,55 +60,32 @@ export const useERPIntegration = () => {
 
     setIsSyncing(true);
     try {
-      // Simulate comprehensive data sync
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      const mockData = {
-        sales: Array.from({ length: 15 }, (_, i) => ({
-          id: i + 1,
-          date: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-          customer: `Cliente ${String.fromCharCode(65 + i)}`,
-          value: Math.random() * 5000 + 500,
-          items: Math.floor(Math.random() * 10) + 1,
-          status: Math.random() > 0.8 ? 'pending' : 'completed'
-        })),
-        purchases: Array.from({ length: 10 }, (_, i) => ({
-          id: i + 1,
-          date: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-          supplier: `Fornecedor ${i + 1}`,
-          value: Math.random() * 8000 + 1000,
-          items: Math.floor(Math.random() * 15) + 1
-        })),
-        inventory: Array.from({ length: 25 }, (_, i) => ({
-          id: i + 1,
-          product: `Produto ${i + 1}`,
-          quantity: Math.floor(Math.random() * 500) + 10,
-          unitValue: Math.random() * 100 + 5,
-          category: ['Eletrônicos', 'Roupas', 'Casa', 'Livros'][Math.floor(Math.random() * 4)]
-        })),
-        financial: Array.from({ length: 20 }, (_, i) => ({
-          id: i + 1,
-          date: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-          type: Math.random() > 0.6 ? 'receita' : 'despesa',
-          description: Math.random() > 0.5 ? 'Venda de produto' : 'Compra de material',
-          value: (Math.random() > 0.6 ? 1 : -1) * (Math.random() * 3000 + 200),
-          category: ['Vendas', 'Compras', 'Impostos', 'Salários'][Math.floor(Math.random() * 4)]
-        })),
-        lastSync: new Date().toISOString()
-      };
+      // Get stored keys from localStorage for the sync
+      const storedKeys = localStorage.getItem(`erpKeys_${erpType}`);
+      const keys = storedKeys ? JSON.parse(storedKeys) : {};
 
-      setIntegrationData(prev => ({ ...prev, [erpType]: mockData }));
-      
-      toast({
-        title: "Sincronização Concluída",
-        description: `Dados do ${erp.label} sincronizados com sucesso!`,
+      const { data, error } = await supabase.functions.invoke(`${erpType}-integration`, {
+        body: { action: 'sync', ...keys }
       });
+
+      if (error) throw error;
       
-      return mockData;
+      if (data?.success && data?.data) {
+        setIntegrationData(prev => ({ ...prev, [erpType]: data.data }));
+        
+        toast({
+          title: "Sincronização Concluída",
+          description: `Dados do ${erp.label} sincronizados com sucesso!`,
+        });
+        
+        return data.data;
+      } else {
+        throw new Error(data?.error || 'Falha na sincronização');
+      }
     } catch (error) {
       toast({
         title: "Erro na Sincronização",
-        description: 'Falha ao sincronizar dados',
+        description: `Falha ao sincronizar dados: ${error.message}`,
         variant: "destructive"
       });
       return null;
