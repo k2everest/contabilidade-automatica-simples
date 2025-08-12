@@ -2,7 +2,7 @@
 import { useState, useCallback } from 'react';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import type { ERPOption, ConnectionStatus, ApiKeys, IntegrationData } from '../types';
+import type { ERPOption, ConnectionStatus, ApiKeys, IntegrationData } from '../types/index';
 
 export const useERPIntegration = () => {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>({});
