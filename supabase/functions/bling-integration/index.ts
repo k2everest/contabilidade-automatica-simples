@@ -5,7 +5,10 @@ const BLING_API_BASE = 'https://www.bling.com.br/Api/v3'
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response(null, { 
+      status: 200,
+      headers: corsHeaders 
+    })
   }
 
   try {
