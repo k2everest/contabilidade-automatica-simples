@@ -26,7 +26,7 @@ serve(async (req) => {
 
     switch (action) {
       case 'test':
-        // Teste de conexão usando endpoint /me
+        // Teste de conexão usando endpoint /me conforme documentação
         const testResponse = await fetch(`${BLING_API_BASE}/me`, { 
           method: 'GET',
           headers 
@@ -47,7 +47,7 @@ serve(async (req) => {
         })
 
       case 'sync':
-        // Sincronização de dados
+        // Sincronização de dados conforme API v3 do Bling
         try {
           const [contatos, produtos, vendas, compras] = await Promise.all([
             fetch(`${BLING_API_BASE}/contatos?limite=100`, { headers }).then(async r => {
