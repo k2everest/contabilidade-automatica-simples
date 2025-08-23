@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from '../_shared/cors.ts'
 
@@ -14,6 +15,8 @@ serve(async (req) => {
 
   try {
     const { action, accessToken, apiKey, version = 'v3' } = await req.json()
+
+    console.log(`Bling Integration - Action: ${action}, Version: ${version}`)
 
     // Para API v2 usa apikey, para v3 usa accessToken
     if (version === 'v2' && !apiKey) {
@@ -44,17 +47,42 @@ serve(async (req) => {
           ? `${apiBase}/contatos/json/?apikey=${apiKey}&estilo=resumido&limite=1`
           : `${apiBase}/me`
           
+        console.log(`Testing connection to: ${testEndpoint}`)
+        
         const testResponse = await fetch(testEndpoint, { 
           method: 'GET',
           headers 
         })
         
+        console.log(`Response status: ${testResponse.status}`)
+        
         if (!testResponse.ok) {
           const errorText = await testResponse.text()
-          throw new Error(`Conexão falhou: ${testResponse.status} - ${errorText}`)
+          console.error(`Connection failed: ${testResponse.status} - ${errorText}`)
+          
+          // Tratamento específico para diferentes tipos de erro
+          if (testResponse.status === 403) {
+            // Parse do erro do Bling para extrair mensagem específica
+            try {
+              const errorData = JSON.parse(errorText)
+              if (errorData.retorno?.erros?.erro?.msg) {
+                throw new Error(`Erro Bling: ${errorData.retorno.erros.erro.msg}`)
+              }
+            } catch (parseError) {
+              // Se não conseguir fazer parse, usa mensagem genérica
+              throw new Error('Credenciais inválidas ou conta inativa no Bling')
+            }
+          } else if (testResponse.status === 401) {
+            throw new Error('API Key ou Access Token inválido')
+          } else if (testResponse.status === 429) {
+            throw new Error('Limite de requisições excedido. Tente novamente em alguns minutos')
+          }
+          
+          throw new Error(`Erro de conexão: ${testResponse.status} - ${errorText}`)
         }
         
         const responseData = await testResponse.json()
+        console.log('Connection successful:', responseData)
         
         return new Response(JSON.stringify({ 
           success: true, 
@@ -67,22 +95,38 @@ serve(async (req) => {
       case 'sync':
         // Sincronização de dados - diferentes endpoints para cada versão
         try {
+          console.log('Starting data synchronization...')
+          
           if (version === 'v2') {
             // API v2 usa XML e parâmetros de query diferentes
             const [contatos, produtos, vendas] = await Promise.all([
               fetch(`${apiBase}/contatos/json/?apikey=${apiKey}&limite=100`, { headers }).then(async r => {
-                if (!r.ok) throw new Error(`Erro contatos: ${r.status}`)
+                if (!r.ok) {
+                  const errorText = await r.text()
+                  console.error(`Erro contatos: ${r.status} - ${errorText}`)
+                  throw new Error(`Erro ao buscar contatos: ${r.status}`)
+                }
                 return r.json()
               }),
               fetch(`${apiBase}/produtos/json/?apikey=${apiKey}&limite=100`, { headers }).then(async r => {
-                if (!r.ok) throw new Error(`Erro produtos: ${r.status}`)
+                if (!r.ok) {
+                  const errorText = await r.text()
+                  console.error(`Erro produtos: ${r.status} - ${errorText}`)
+                  throw new Error(`Erro ao buscar produtos: ${r.status}`)
+                }
                 return r.json()
               }),
               fetch(`${apiBase}/pedidos/json/?apikey=${apiKey}&limite=50`, { headers }).then(async r => {
-                if (!r.ok) throw new Error(`Erro pedidos: ${r.status}`)
+                if (!r.ok) {
+                  const errorText = await r.text()
+                  console.error(`Erro pedidos: ${r.status} - ${errorText}`)
+                  throw new Error(`Erro ao buscar pedidos: ${r.status}`)
+                }
                 return r.json()
               })
             ])
+
+            console.log('V2 sync completed successfully')
 
             return new Response(JSON.stringify({
               success: true,
@@ -102,22 +146,40 @@ serve(async (req) => {
             // API v3 usa OAuth e endpoints diferentes
             const [contatos, produtos, vendas, compras] = await Promise.all([
               fetch(`${apiBase}/contatos?limite=100`, { headers }).then(async r => {
-                if (!r.ok) throw new Error(`Erro contatos: ${r.status}`)
+                if (!r.ok) {
+                  const errorText = await r.text()
+                  console.error(`Erro contatos: ${r.status} - ${errorText}`)
+                  throw new Error(`Erro ao buscar contatos: ${r.status}`)
+                }
                 return r.json()
               }),
               fetch(`${apiBase}/produtos?limite=100`, { headers }).then(async r => {
-                if (!r.ok) throw new Error(`Erro produtos: ${r.status}`)
+                if (!r.ok) {
+                  const errorText = await r.text()
+                  console.error(`Erro produtos: ${r.status} - ${errorText}`)
+                  throw new Error(`Erro ao buscar produtos: ${r.status}`)
+                }
                 return r.json()
               }),
               fetch(`${apiBase}/vendas?limite=50`, { headers }).then(async r => {
-                if (!r.ok) throw new Error(`Erro vendas: ${r.status}`)
+                if (!r.ok) {
+                  const errorText = await r.text()
+                  console.error(`Erro vendas: ${r.status} - ${errorText}`)
+                  throw new Error(`Erro ao buscar vendas: ${r.status}`)
+                }
                 return r.json()
               }),
               fetch(`${apiBase}/compras?limite=50`, { headers }).then(async r => {
-                if (!r.ok) throw new Error(`Erro compras: ${r.status}`)
+                if (!r.ok) {
+                  const errorText = await r.text()
+                  console.error(`Erro compras: ${r.status} - ${errorText}`)
+                  throw new Error(`Erro ao buscar compras: ${r.status}`)
+                }
                 return r.json()
               })
             ])
+
+            console.log('V3 sync completed successfully')
 
             return new Response(JSON.stringify({
               success: true,
@@ -135,6 +197,7 @@ serve(async (req) => {
             })
           }
         } catch (syncError) {
+          console.error('Sync error:', syncError)
           throw new Error(`Erro na sincronização: ${syncError.message}`)
         }
 

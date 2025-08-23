@@ -11,6 +11,7 @@ export const useERPIntegration = () => {
 
   const testConnection = useCallback(async (erpType: string, erp: ERPOption, keys: Record<string, string>) => {
     try {
+      console.log(`Testing connection for ${erpType} with keys:`, Object.keys(keys));
       setConnectionStatus(prev => ({ ...prev, [erpType]: 'testing' }));
       
       // Para Bling, extrair a versão do erpType e usar sempre 'bling-integration'
@@ -24,9 +25,16 @@ export const useERPIntegration = () => {
         ...keys
       };
       
+      console.log(`Calling function ${functionName} with body:`, body);
+      
       const { data, error } = await supabase.functions.invoke(functionName, { body });
 
-      if (error) throw error;
+      console.log('Function response:', { data, error });
+
+      if (error) {
+        console.error('Supabase function error:', error);
+        throw error;
+      }
       
       const success = data?.success || false;
       
@@ -39,18 +47,41 @@ export const useERPIntegration = () => {
         return true;
       } else {
         setConnectionStatus(prev => ({ ...prev, [erpType]: 'error' }));
+        
+        // Mensagem de erro mais específica
+        let errorMessage = data?.error || 'Erro desconhecido';
+        
+        // Mapear erros comuns para mensagens mais amigáveis
+        if (errorMessage.includes('conta foi inativada')) {
+          errorMessage = 'Sua conta no Bling está inativa. Verifique sua situação junto ao suporte do Bling.';
+        } else if (errorMessage.includes('API Key') || errorMessage.includes('Access Token')) {
+          errorMessage = 'Credenciais inválidas. Verifique sua API Key ou Access Token.';
+        } else if (errorMessage.includes('limite de requisições')) {
+          errorMessage = 'Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.';
+        }
+        
         toast({
           title: "Falha na Conexão",
-          description: data?.error || 'Credenciais inválidas',
+          description: errorMessage,
           variant: "destructive"
         });
         return false;
       }
     } catch (error) {
+      console.error('Connection test error:', error);
       setConnectionStatus(prev => ({ ...prev, [erpType]: 'error' }));
+      
+      let errorMessage = 'Erro de comunicação com o servidor';
+      
+      if (error.message) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
       toast({
         title: "Erro de Conexão",
-        description: `Erro: ${error.message}`,
+        description: errorMessage,
         variant: "destructive"
       });
       return false;
@@ -69,9 +100,13 @@ export const useERPIntegration = () => {
 
     setIsSyncing(true);
     try {
+      console.log(`Starting data sync for ${erpType}`);
+      
       // Get stored keys from localStorage for the sync
       const storedKeys = localStorage.getItem(`erpKeys_${erpType}`);
       const keys = storedKeys ? JSON.parse(storedKeys) : {};
+
+      console.log(`Using stored keys for sync:`, Object.keys(keys));
 
       // Para Bling, extrair a versão do erpType e usar sempre 'bling-integration'
       const isBlingo = erpType.startsWith('bling');
@@ -84,9 +119,16 @@ export const useERPIntegration = () => {
         ...keys
       };
 
+      console.log(`Calling sync function ${functionName} with body:`, body);
+
       const { data, error } = await supabase.functions.invoke(functionName, { body });
 
-      if (error) throw error;
+      console.log('Sync response:', { data, error });
+
+      if (error) {
+        console.error('Sync error:', error);
+        throw error;
+      }
       
       if (data?.success && data?.data) {
         setIntegrationData(prev => ({ ...prev, [erpType]: data.data }));
@@ -101,9 +143,17 @@ export const useERPIntegration = () => {
         throw new Error(data?.error || 'Falha na sincronização');
       }
     } catch (error) {
+      console.error('Sync process error:', error);
+      
+      let errorMessage = 'Falha ao sincronizar dados';
+      
+      if (error.message) {
+        errorMessage = `Falha ao sincronizar dados: ${error.message}`;
+      }
+      
       toast({
         title: "Erro na Sincronização",
-        description: `Falha ao sincronizar dados: ${error.message}`,
+        description: errorMessage,
         variant: "destructive"
       });
       return null;
