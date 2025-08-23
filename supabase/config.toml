@@ -1,1 +1,19 @@
 project_id = "wbcaxibjwlxlqmmcoefp"
+
+[functions.bling-integration]
+verify_jwt = false
+
+[functions.tiny-integration]
+verify_jwt = false
+
+[functions.omie-integration]
+verify_jwt = false
+
+[functions.contaazul-integration]
+verify_jwt = false
+
+[functions.alterdata-integration]
+verify_jwt = false
+
+[functions.nibo-integration]
+verify_jwt = false
