@@ -46,13 +46,22 @@ const Dashboard: React.FC = () => {
 
   const erpOptions: ERPOption[] = [
     {
-      value: 'bling',
-      label: 'Bling',
+      value: 'bling-v3',
+      label: 'Bling v3',
       color: 'blue',
       status: 'disconnected',
       apiEndpoint: 'https://api.bling.com.br/Api/v3',
       requiredFields: ['accessToken'],
-      description: 'Sistema de gestão empresarial completo com API REST. Requer autorização OAuth 2.0.'
+      description: 'Sistema de gestão empresarial completo com API REST v3. Requer autorização OAuth 2.0.'
+    },
+    {
+      value: 'bling-v2',
+      label: 'Bling v2',
+      color: 'sky',
+      status: 'disconnected',
+      apiEndpoint: 'https://bling.com.br/Api/v2',
+      requiredFields: ['apiKey'],
+      description: 'Sistema de gestão empresarial completo com API v2. Usa API Key para autenticação.'
     },
     {
       value: 'omie',

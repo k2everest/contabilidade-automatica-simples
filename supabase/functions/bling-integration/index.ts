@@ -1,7 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from '../_shared/cors.ts'
 
-const BLING_API_BASE = 'https://api.bling.com.br/Api/v3'
+const BLING_API_V2_BASE = 'https://bling.com.br/Api/v2'
+const BLING_API_V3_BASE = 'https://api.bling.com.br/Api/v3'
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -12,22 +13,38 @@ serve(async (req) => {
   }
 
   try {
-    const { action, accessToken } = await req.json()
+    const { action, accessToken, apiKey, version = 'v3' } = await req.json()
 
-    if (!accessToken) {
-      throw new Error('Access token é obrigatório')
+    // Para API v2 usa apikey, para v3 usa accessToken
+    if (version === 'v2' && !apiKey) {
+      throw new Error('API Key é obrigatório para v2')
+    }
+    if (version === 'v3' && !accessToken) {
+      throw new Error('Access token é obrigatório para v3')
     }
 
-    const headers = {
-      'Authorization': `Bearer ${accessToken}`,
-      'Accept': 'application/json',
-      'Content-Type': 'application/json'
-    }
+    const apiBase = version === 'v2' ? BLING_API_V2_BASE : BLING_API_V3_BASE
+    
+    // Headers diferentes para cada versão
+    const headers = version === 'v2' 
+      ? {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      : {
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
 
     switch (action) {
       case 'test':
-        // Teste de conexão usando endpoint /me conforme documentação
-        const testResponse = await fetch(`${BLING_API_BASE}/me`, { 
+        // Teste de conexão - diferentes endpoints para cada versão
+        const testEndpoint = version === 'v2' 
+          ? `${apiBase}/contatos/json/?apikey=${apiKey}&estilo=resumido&limite=1`
+          : `${apiBase}/me`
+          
+        const testResponse = await fetch(testEndpoint, { 
           method: 'GET',
           headers 
         })
@@ -37,50 +54,86 @@ serve(async (req) => {
           throw new Error(`Conexão falhou: ${testResponse.status} - ${errorText}`)
         }
         
-        const userData = await testResponse.json()
+        const responseData = await testResponse.json()
         
         return new Response(JSON.stringify({ 
           success: true, 
-          user: userData 
+          data: responseData,
+          version: version 
         }), { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
 
       case 'sync':
-        // Sincronização de dados conforme API v3 do Bling
+        // Sincronização de dados - diferentes endpoints para cada versão
         try {
-          const [contatos, produtos, vendas, compras] = await Promise.all([
-            fetch(`${BLING_API_BASE}/contatos?limite=100`, { headers }).then(async r => {
-              if (!r.ok) throw new Error(`Erro contatos: ${r.status}`)
-              return r.json()
-            }),
-            fetch(`${BLING_API_BASE}/produtos?limite=100`, { headers }).then(async r => {
-              if (!r.ok) throw new Error(`Erro produtos: ${r.status}`)
-              return r.json()
-            }),
-            fetch(`${BLING_API_BASE}/vendas?limite=50`, { headers }).then(async r => {
-              if (!r.ok) throw new Error(`Erro vendas: ${r.status}`)
-              return r.json()
-            }),
-            fetch(`${BLING_API_BASE}/compras?limite=50`, { headers }).then(async r => {
-              if (!r.ok) throw new Error(`Erro compras: ${r.status}`)
-              return r.json()
-            })
-          ])
+          if (version === 'v2') {
+            // API v2 usa XML e parâmetros de query diferentes
+            const [contatos, produtos, vendas] = await Promise.all([
+              fetch(`${apiBase}/contatos/json/?apikey=${apiKey}&limite=100`, { headers }).then(async r => {
+                if (!r.ok) throw new Error(`Erro contatos: ${r.status}`)
+                return r.json()
+              }),
+              fetch(`${apiBase}/produtos/json/?apikey=${apiKey}&limite=100`, { headers }).then(async r => {
+                if (!r.ok) throw new Error(`Erro produtos: ${r.status}`)
+                return r.json()
+              }),
+              fetch(`${apiBase}/pedidos/json/?apikey=${apiKey}&limite=50`, { headers }).then(async r => {
+                if (!r.ok) throw new Error(`Erro pedidos: ${r.status}`)
+                return r.json()
+              })
+            ])
 
-          return new Response(JSON.stringify({
-            success: true,
-            data: {
-              sales: vendas.data || [],
-              purchases: compras.data || [],
-              inventory: produtos.data || [],
-              contacts: contatos.data || [],
-              financial: [],
-              lastSync: new Date().toISOString()
-            }
-          }), { 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          })
+            return new Response(JSON.stringify({
+              success: true,
+              data: {
+                sales: vendas.retorno?.pedidos || [],
+                purchases: [],
+                inventory: produtos.retorno?.produtos || [],
+                contacts: contatos.retorno?.contatos || [],
+                financial: [],
+                lastSync: new Date().toISOString(),
+                version: 'v2'
+              }
+            }), { 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            })
+          } else {
+            // API v3 usa OAuth e endpoints diferentes
+            const [contatos, produtos, vendas, compras] = await Promise.all([
+              fetch(`${apiBase}/contatos?limite=100`, { headers }).then(async r => {
+                if (!r.ok) throw new Error(`Erro contatos: ${r.status}`)
+                return r.json()
+              }),
+              fetch(`${apiBase}/produtos?limite=100`, { headers }).then(async r => {
+                if (!r.ok) throw new Error(`Erro produtos: ${r.status}`)
+                return r.json()
+              }),
+              fetch(`${apiBase}/vendas?limite=50`, { headers }).then(async r => {
+                if (!r.ok) throw new Error(`Erro vendas: ${r.status}`)
+                return r.json()
+              }),
+              fetch(`${apiBase}/compras?limite=50`, { headers }).then(async r => {
+                if (!r.ok) throw new Error(`Erro compras: ${r.status}`)
+                return r.json()
+              })
+            ])
+
+            return new Response(JSON.stringify({
+              success: true,
+              data: {
+                sales: vendas.data || [],
+                purchases: compras.data || [],
+                inventory: produtos.data || [],
+                contacts: contatos.data || [],
+                financial: [],
+                lastSync: new Date().toISOString(),
+                version: 'v3'
+              }
+            }), { 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            })
+          }
         } catch (syncError) {
           throw new Error(`Erro na sincronização: ${syncError.message}`)
         }

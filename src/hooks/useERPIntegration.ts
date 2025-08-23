@@ -13,9 +13,18 @@ export const useERPIntegration = () => {
     try {
       setConnectionStatus(prev => ({ ...prev, [erpType]: 'testing' }));
       
-      const { data, error } = await supabase.functions.invoke(`${erpType}-integration`, {
-        body: { action: 'test', ...keys }
-      });
+      // Para Bling, extrair a versão do erpType e usar sempre 'bling-integration'
+      const isBlingo = erpType.startsWith('bling');
+      const version = isBlingo ? erpType.split('-')[1] || 'v3' : undefined;
+      const functionName = isBlingo ? 'bling-integration' : `${erpType}-integration`;
+      
+      const body = { 
+        action: 'test',
+        ...(version && { version }),
+        ...keys
+      };
+      
+      const { data, error } = await supabase.functions.invoke(functionName, { body });
 
       if (error) throw error;
       
@@ -64,9 +73,18 @@ export const useERPIntegration = () => {
       const storedKeys = localStorage.getItem(`erpKeys_${erpType}`);
       const keys = storedKeys ? JSON.parse(storedKeys) : {};
 
-      const { data, error } = await supabase.functions.invoke(`${erpType}-integration`, {
-        body: { action: 'sync', ...keys }
-      });
+      // Para Bling, extrair a versão do erpType e usar sempre 'bling-integration'
+      const isBlingo = erpType.startsWith('bling');
+      const version = isBlingo ? erpType.split('-')[1] || 'v3' : undefined;
+      const functionName = isBlingo ? 'bling-integration' : `${erpType}-integration`;
+      
+      const body = { 
+        action: 'sync',
+        ...(version && { version }),
+        ...keys
+      };
+
+      const { data, error } = await supabase.functions.invoke(functionName, { body });
 
       if (error) throw error;
       
